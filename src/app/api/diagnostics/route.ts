@@ -165,6 +165,8 @@ export async function GET() {
     smtpPassLooksLikeGmailAppPassword: pass.replace(/\s/g, "").length === 16,
     resendKeySet: Boolean((process.env.RESEND_API_KEY ?? "").trim()),
     emailTo: process.env.EMAIL_TO || "(not set)",
+    /** What the SMTP path will actually put in the From: header */
+    effectiveSmtpFrom: (process.env.EMAIL_FROM ?? "").trim() || user || "(none)",
     hint:
       pass.length === 0
         ? "SMTP_PASS is not set on this deployment."

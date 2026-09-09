@@ -21,7 +21,10 @@ export function emailConfig(settings: Setting) {
   return {
     to: pick(settings.emailTo, process.env.EMAIL_TO),
     resendKey: (process.env.RESEND_API_KEY ?? "").trim(),
-    from: (process.env.EMAIL_FROM ?? "Nifty Alerts <onboarding@resend.dev>").trim(),
+    // Left empty when unset so each transport can pick its own correct default:
+    // Resend needs a verified domain (or its sandbox address), while SMTP must
+    // send as the authenticating mailbox or the provider rejects the sender.
+    from: (process.env.EMAIL_FROM ?? "").trim(),
     smtpHost: (process.env.SMTP_HOST ?? "").trim(),
     smtpPort: Number(process.env.SMTP_PORT ?? 587),
     smtpUser: (process.env.SMTP_USER ?? "").trim(),
@@ -84,7 +87,13 @@ export async function sendEmail(
           Authorization: `Bearer ${cfg.resendKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ from: cfg.from, to: [cfg.to], subject, html, text: textBody }),
+        body: JSON.stringify({
+          from: cfg.from || "Nifty Alerts <onboarding@resend.dev>",
+          to: [cfg.to],
+          subject,
+          html,
+          text: textBody,
+        }),
       });
       if (!res.ok) {
         const body = await res.text().catch(() => "");
