@@ -7,6 +7,10 @@ import type { MetadataRoute } from "next";
  * persistent storage that survives alongside the browser. On iOS a home-screen
  * app keeps a cookie store separate from Safari, so the first launch after
  * installing will still ask for the password once — after that it persists.
+ *
+ * Icons are SVG only. A rasterised apple-touch-icon was tried and dropped: the
+ * generator could not load a font containing the rupee sign and produced an
+ * empty square, which is worse than letting iOS derive its own.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -29,8 +33,8 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: "any",
       },
       {
-        src: "/apple-icon.svg",
-        sizes: "180x180",
+        src: "/icon.svg",
+        sizes: "any",
         type: "image/svg+xml",
         purpose: "maskable",
       },
