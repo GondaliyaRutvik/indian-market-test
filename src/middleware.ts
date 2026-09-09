@@ -38,5 +38,10 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.svg$).*)"],
+  // The web manifest and icons must stay publicly readable: a browser fetches
+  // the manifest before any session exists, and gating it behind login makes the
+  // app uninstallable as a PWA.
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|.*\\.png$|.*\\.svg$|.*\\.ico$).*)",
+  ],
 };
