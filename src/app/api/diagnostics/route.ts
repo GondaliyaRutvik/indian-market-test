@@ -149,6 +149,34 @@ export async function GET() {
   const all = nseWithCookie ? [...probes, nseWithCookie] : probes;
   const working = all.filter((p) => p.ok).map((p) => p.source);
 
+  // Email config shape — never the password itself, only the properties that
+  // explain a 535 BadCredentials (Gmail app passwords are exactly 16 chars and
+  // must have their display spaces removed).
+  const pass = process.env.SMTP_PASS ?? "";
+  const user = process.env.SMTP_USER ?? "";
+  const email = {
+    smtpHost: process.env.SMTP_HOST || "(not set)",
+    smtpPort: process.env.SMTP_PORT || "(not set)",
+    smtpUser: user || "(not set)",
+    smtpUserLooksLikeEmail: user.includes("@"),
+    smtpPassSet: pass.length > 0,
+    smtpPassLength: pass.length,
+    smtpPassHasSpaces: /\s/.test(pass),
+    smtpPassLooksLikeGmailAppPassword: pass.replace(/\s/g, "").length === 16,
+    resendKeySet: Boolean((process.env.RESEND_API_KEY ?? "").trim()),
+    emailTo: process.env.EMAIL_TO || "(not set)",
+    hint:
+      pass.length === 0
+        ? "SMTP_PASS is not set on this deployment."
+        : /\s/.test(pass)
+          ? "SMTP_PASS contains spaces — remove them (Google displays the app password as 4 groups of 4)."
+          : pass.replace(/\s/g, "").length !== 16
+            ? `SMTP_PASS is ${pass.length} characters. A Gmail App Password is exactly 16 — this looks like your normal account password, which Gmail always rejects.`
+            : !user.includes("@")
+              ? "SMTP_USER should be the full email address."
+              : "Config shape looks correct. If auth still fails, regenerate the App Password.",
+  };
+
   return NextResponse.json(
     {
       ranAt: new Date().toISOString(),
@@ -160,6 +188,7 @@ export async function GET() {
         expectedRegion: "bom1",
       },
       cookieHandshake: cookie ? `got ${cookie.split(";").length} cookie(s)` : "no cookies returned",
+      email,
       verdict: {
         working,
         nseUsable: all.some((p) => p.source.startsWith("NSE") && p.ok),
