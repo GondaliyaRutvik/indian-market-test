@@ -1,0 +1,110 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink-950: #0a0c10;
+  --color-ink-900: #11141b;
+  --color-ink-850: #161a23;
+  --color-ink-800: #1d222d;
+  --color-ink-700: #2a3040;
+  --color-ink-500: #6b7387;
+  --color-ink-300: #a7aec0;
+  --color-ink-100: #e8ebf2;
+
+  --color-up: #16c784;
+  --color-down: #ea3943;
+  --color-accent: #f0b90b;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background:
+    radial-gradient(900px 500px at 15% -10%, rgba(240, 185, 11, 0.06), transparent 60%),
+    radial-gradient(800px 500px at 90% 0%, rgba(22, 199, 132, 0.05), transparent 55%),
+    var(--color-ink-950);
+  color: var(--color-ink-100);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+.card {
+  background: color-mix(in srgb, var(--color-ink-900) 88%, transparent);
+  border: 1px solid var(--color-ink-800);
+  border-radius: 14px;
+}
+
+.card-hover {
+  transition: border-color 140ms ease, transform 140ms ease;
+}
+.card-hover:hover {
+  border-color: var(--color-ink-700);
+  transform: translateY(-1px);
+}
+
+input,
+select {
+  background: var(--color-ink-850);
+  border: 1px solid var(--color-ink-700);
+  border-radius: 8px;
+  padding: 0.5rem 0.7rem;
+  color: var(--color-ink-100);
+  font-size: 0.875rem;
+  width: 100%;
+}
+input:focus,
+select:focus {
+  outline: 2px solid color-mix(in srgb, var(--color-accent) 55%, transparent);
+  outline-offset: 1px;
+}
+
+.btn {
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: opacity 120ms ease, background 120ms ease;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--color-accent);
+  color: #1a1400;
+}
+.btn-primary:hover:not(:disabled) {
+  background: #ffcc1f;
+}
+.btn-ghost {
+  background: var(--color-ink-850);
+  border-color: var(--color-ink-700);
+  color: var(--color-ink-100);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--color-ink-800);
+}
+.btn-danger {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--color-down) 45%, transparent);
+  color: var(--color-down);
+}
+.btn-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--color-down) 12%, transparent);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+.live-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}

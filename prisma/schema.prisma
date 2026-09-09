@@ -1,0 +1,93 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Single-row table (id is always "default") holding channel configuration.
+/// Values set here override the matching environment variables.
+model Setting {
+  id String @id @default("default")
+
+  telegramEnabled  Boolean @default(false)
+  telegramBotToken String?
+  telegramChatId   String?
+
+  emailEnabled Boolean @default(false)
+  emailTo      String?
+
+  inAppEnabled Boolean @default(true)
+
+  /// When true, alerts are only evaluated during NSE trading hours (Mon-Fri 09:15-15:30 IST)
+  marketHoursOnly Boolean @default(true)
+
+  updatedAt DateTime @updatedAt
+}
+
+/// One user-defined condition, e.g. "Nifty 50 falls 1% vs previous close".
+model AlertRule {
+  id     String @id @default(cuid())
+  symbol String
+  label  String
+
+  /// "down" = alert when change is at or below -threshold
+  /// "up"   = alert when change is at or above +threshold
+  direction String @default("down")
+
+  /// Magnitude in percent, always positive. 1 means 1%.
+  thresholdPct Float @default(1)
+
+  /// "prevClose" = % move against yesterday's close (the standard headline number)
+  /// "dayHigh"   = intraday drawdown from today's high (catches a fade after a strong open)
+  basis String @default("prevClose")
+
+  enabled Boolean @default(true)
+
+  /// Minimum gap between two alerts for this rule, so one bad day is not 50 messages.
+  cooldownMinutes Int @default(120)
+
+  /// Comma separated subset of: telegram,email,inapp
+  channels String @default("telegram,email,inapp")
+
+  lastTriggeredAt DateTime?
+  createdAt       DateTime  @default(now())
+
+  events AlertEvent[]
+
+  @@index([enabled])
+}
+
+/// A fired alert. Also powers the in-app notification feed.
+model AlertEvent {
+  id     String     @id @default(cuid())
+  ruleId String?
+  rule   AlertRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+
+  symbol String
+  label  String
+
+  price     Float
+  prevClose Float
+  changePct Float
+  basis     String @default("prevClose")
+
+  title   String
+  message String
+
+  /// Snapshot of the ETF suggestions at the moment the alert fired.
+  etfs Json?
+
+  read Boolean @default(false)
+
+  telegramSent Boolean @default(false)
+  emailSent    Boolean @default(false)
+  deliveryLog  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([read])
+}
