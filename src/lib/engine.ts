@@ -1,8 +1,9 @@
 import type { AlertRule, Setting } from "@prisma/client";
 import { prisma, getSettings } from "./db";
-import { getQuotes, type Quote } from "./yahoo";
+import { type Quote } from "./yahoo";
+import { getMarketQuotes } from "./quotes";
 import { etfsFor, INDEX_BY_SYMBOL } from "./instruments";
-import { isMarketOpen, formatIst } from "./market-hours";
+import { isMarketOpen, formatIst, istNow } from "./market-hours";
 import { sendEmail, sendTelegram, type DeliveryResult } from "./notify";
 
 export type EtfSuggestion = {
@@ -16,6 +17,8 @@ export type EtfSuggestion = {
   vsSma50Pct: number | null;
   from52wHighPct: number | null;
   volume: number | null;
+  nav: number | null;
+  navPremiumPct: number | null;
 };
 
 export type TriggerResult = {
@@ -64,6 +67,57 @@ export function ruleIsTriggered(rule: AlertRule, q: Quote): boolean {
   return rule.direction === "up" ? metric >= threshold : metric <= -threshold;
 }
 
+/**
+ * How many whole multiples of the threshold the move has reached.
+ *
+ * With a 1% rule: -0.9% -> 0, -1.0% -> 1, -1.9% -> 1, -2.0% -> 2, -3.4% -> 3.
+ * Only an increase in this number is worth another message, which is what turns
+ * "alert every 5 minutes while the market falls" into "alert at 1%, then 2%,
+ * then 3%".
+ */
+export function escalationStep(rule: AlertRule, metric: number): number {
+  const threshold = Math.abs(rule.thresholdPct);
+  if (threshold <= 0) return 0;
+  const magnitude = rule.direction === "up" ? metric : -metric;
+  if (magnitude < threshold) return 0;
+  // Guard against floating point leaving 2.0/1.0 at 1.9999999.
+  return Math.floor(magnitude / threshold + 1e-9);
+}
+
+/**
+ * Decide whether this rule should send now, given the level it last alerted at.
+ * `today` is the IST trading-day key, so every session starts fresh.
+ */
+export function shouldFire(
+  rule: AlertRule,
+  metric: number,
+  today: string,
+): { fire: boolean; step: number; reason: string } {
+  const step = escalationStep(rule, metric);
+  if (step < 1) {
+    return {
+      fire: false,
+      step,
+      reason: `at ${signed(metric)}%, threshold ${rule.direction === "up" ? "+" : "-"}${rule.thresholdPct}%`,
+    };
+  }
+
+  // A new trading day clears the ladder.
+  const sameDay = rule.lastTriggerDay === today;
+  const lastStep = sameDay ? (rule.lastTriggerStep ?? 0) : 0;
+
+  if (step <= lastStep) {
+    const next = ((lastStep + 1) * Math.abs(rule.thresholdPct)).toFixed(2);
+    return {
+      fire: false,
+      step,
+      reason: `already alerted at ${lastStep}x threshold today — next alert at ${rule.direction === "up" ? "+" : "-"}${next}%`,
+    };
+  }
+
+  return { fire: true, step, reason: `escalated to ${step}x threshold` };
+}
+
 /** Ranked ETF ideas for a triggered index — deepest discount to its 20-DMA first. */
 export function buildSuggestions(
   indexSymbol: string,
@@ -85,6 +139,8 @@ export function buildSuggestions(
       vsSma50Pct: q.vsSma50Pct,
       from52wHighPct: q.from52wHighPct,
       volume: q.volume,
+      nav: q.nav,
+      navPremiumPct: q.navPremiumPct,
     });
   }
 
@@ -265,6 +321,7 @@ export async function runCheck(
     };
   }
 
+  const today = istNow().dateKey;
   const rules = await prisma.alertRule.findMany({ where: { enabled: true } });
   if (rules.length === 0) {
     return {
@@ -278,7 +335,9 @@ export async function runCheck(
   const etfSymbols = Array.from(
     new Set(indexSymbols.flatMap((s) => etfsFor(s).map((e) => e.symbol))),
   );
-  const { quotes, errors } = await getQuotes([...indexSymbols, ...etfSymbols], { fresh: true });
+  const { quotes, errors } = await getMarketQuotes([...indexSymbols, ...etfSymbols], {
+    fresh: true,
+  });
 
   const results: TriggerResult[] = [];
   let fired = 0;
@@ -307,31 +366,22 @@ export async function runCheck(
       continue;
     }
 
-    if (!ruleIsTriggered(rule, q)) {
+    // Escalation ladder: alert at the threshold, then only when the move reaches
+    // the next multiple of it. This is what keeps a falling session to a handful
+    // of messages instead of one per check.
+    const decision = shouldFire(rule, metric, today);
+    if (!decision.fire) {
       results.push({
         ruleId: rule.id, symbol: rule.symbol, label: rule.label,
-        changePct: metric, fired: false,
-        reason: `at ${signed(metric)}%, threshold ${rule.direction === "up" ? "+" : "-"}${rule.thresholdPct}%`,
+        changePct: metric, fired: false, reason: decision.reason,
       });
       continue;
     }
 
-    // Cooldown: one bad day should not become fifty messages.
-    if (rule.lastTriggeredAt) {
-      const elapsedMin = (Date.now() - rule.lastTriggeredAt.getTime()) / 60000;
-      if (elapsedMin < rule.cooldownMinutes) {
-        results.push({
-          ruleId: rule.id, symbol: rule.symbol, label: rule.label,
-          changePct: metric, fired: false,
-          reason: `cooling down (${Math.round(rule.cooldownMinutes - elapsedMin)} min left)`,
-        });
-        continue;
-      }
-    }
-
     const etfs = buildSuggestions(rule.symbol, quotes);
+    const stepNote = decision.step > 1 ? ` (${decision.step}x threshold)` : "";
     const channels = rule.channels.split(",").map((c) => c.trim()).filter(Boolean);
-    const title = renderTitle(rule, q, metric);
+    const title = renderTitle(rule, q, metric) + stepNote;
     const log: string[] = [];
 
     let telegramSent = false;
@@ -370,7 +420,11 @@ export async function runCheck(
 
     await prisma.alertRule.update({
       where: { id: rule.id },
-      data: { lastTriggeredAt: new Date() },
+      data: {
+        lastTriggeredAt: new Date(),
+        lastTriggerStep: decision.step,
+        lastTriggerDay: today,
+      },
     });
 
     fired++;

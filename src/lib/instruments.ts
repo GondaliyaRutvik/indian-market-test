@@ -18,6 +18,8 @@ export type Etf = {
 
 export type TrackedIndex = {
   symbol: string;
+  /** Matching indexSymbol in NSE's /api/allIndices, when one exists. */
+  nseName?: string;
   name: string;
   /** Short name for tight UI spaces */
   short: string;
@@ -30,6 +32,7 @@ export type TrackedIndex = {
 export const INDICES: TrackedIndex[] = [
   {
     symbol: "^NSEI",
+    nseName: "NIFTY 50",
     name: "Nifty 50",
     short: "NIFTY",
     group: "Broad",
@@ -53,6 +56,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^NSEBANK",
+    nseName: "NIFTY BANK",
     name: "Nifty Bank",
     short: "BANKNIFTY",
     group: "Sector",
@@ -64,6 +68,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^NSMIDCP",
+    nseName: "NIFTY NEXT 50",
     name: "Nifty Next 50",
     short: "NEXT50",
     group: "Broad",
@@ -74,6 +79,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CRSLDX",
+    nseName: "NIFTY 500",
     name: "Nifty 500",
     short: "NIFTY500",
     group: "Broad",
@@ -85,6 +91,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXIT",
+    nseName: "NIFTY IT",
     name: "Nifty IT",
     short: "IT",
     group: "Sector",
@@ -95,6 +102,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXPHARMA",
+    nseName: "NIFTY PHARMA",
     name: "Nifty Pharma",
     short: "PHARMA",
     group: "Sector",
@@ -105,6 +113,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXAUTO",
+    nseName: "NIFTY AUTO",
     name: "Nifty Auto",
     short: "AUTO",
     group: "Sector",
@@ -115,6 +124,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXFMCG",
+    nseName: "NIFTY FMCG",
     name: "Nifty FMCG",
     short: "FMCG",
     group: "Sector",
@@ -125,6 +135,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXPSUBANK",
+    nseName: "NIFTY PSU BANK",
     name: "Nifty PSU Bank",
     short: "PSUBANK",
     group: "Sector",
@@ -135,6 +146,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXMETAL",
+    nseName: "NIFTY METAL",
     name: "Nifty Metal",
     short: "METAL",
     group: "Sector",
@@ -145,6 +157,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXREALTY",
+    nseName: "NIFTY REALTY",
     name: "Nifty Realty",
     short: "REALTY",
     group: "Sector",
@@ -155,6 +168,7 @@ export const INDICES: TrackedIndex[] = [
   },
   {
     symbol: "^CNXENERGY",
+    nseName: "NIFTY ENERGY",
     name: "Nifty Energy",
     short: "ENERGY",
     group: "Sector",

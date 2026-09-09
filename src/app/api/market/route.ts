@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireSession } from "@/lib/guard";
-import { getQuotes } from "@/lib/yahoo";
+import { getMarketQuotes } from "@/lib/quotes";
 import { INDICES, ALL_ETF_SYMBOLS } from "@/lib/instruments";
 import { buildSuggestions } from "@/lib/engine";
 import { marketStatus, formatIst } from "@/lib/market-hours";
@@ -15,7 +15,8 @@ export async function GET() {
   if (denied) return denied;
 
   const indexSymbols = INDICES.map((i) => i.symbol);
-  const { quotes, errors } = await getQuotes([...indexSymbols, ...ALL_ETF_SYMBOLS]);
+  const { quotes, errors, nseOk, nseError, nseTimestamp, nseCount } =
+    await getMarketQuotes([...indexSymbols, ...ALL_ETF_SYMBOLS]);
 
   const indices = INDICES.map((idx) => {
     const q = quotes[idx.symbol];
@@ -50,5 +51,12 @@ export async function GET() {
     indices,
     suggestions,
     errors,
+    dataSource: {
+      nseOk,
+      nseError,
+      nseTimestamp,
+      nseCount,
+      label: nseOk ? "NSE India (live)" : "Yahoo Finance (NSE unreachable)",
+    },
   });
 }

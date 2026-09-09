@@ -38,6 +38,12 @@ export type Quote = {
   asOf: string;
   /** Served from cache because the live fetch failed */
   stale: boolean;
+  /** Which upstream produced the price fields */
+  source: "yahoo" | "nse";
+  /** Net asset value — ETFs only, and only when NSE supplied it */
+  nav: number | null;
+  /** Percent premium (+) or discount (-) of price to NAV */
+  navPremiumPct: number | null;
   /** Calendar days between the previous-close bar and the latest bar */
   prevCloseAgeDays: number | null;
   /**
@@ -170,6 +176,9 @@ export async function getQuote(symbol: string, opts: { fresh?: boolean } = {}): 
       (meta.regularMarketTime ? meta.regularMarketTime * 1000 : Date.now()),
     ).toISOString(),
     stale: false,
+    source: "yahoo",
+    nav: null,
+    navPremiumPct: null,
     prevCloseAgeDays,
     changeReliable,
   };

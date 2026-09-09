@@ -27,8 +27,13 @@ export function emailConfig(settings: Setting) {
     from: (process.env.EMAIL_FROM ?? "").trim(),
     smtpHost: (process.env.SMTP_HOST ?? "").trim(),
     smtpPort: Number(process.env.SMTP_PORT ?? 587),
-    smtpUser: (process.env.SMTP_USER ?? "").trim(),
-    smtpPass: (process.env.SMTP_PASS ?? "").trim(),
+    // EMAIL_USER/EMAIL_PASS accepted as aliases — both namings are in common use
+    // and silently reading neither is a confusing failure.
+    smtpUser: (process.env.SMTP_USER ?? process.env.EMAIL_USER ?? "").trim(),
+    // Google presents App Passwords as four space-separated groups. Pasting them
+    // verbatim is the norm, so strip internal whitespace rather than handing
+    // Gmail a 19-character string and reporting "bad credentials".
+    smtpPass: (process.env.SMTP_PASS ?? process.env.EMAIL_PASS ?? "").replace(/\s+/g, ""),
   };
 }
 

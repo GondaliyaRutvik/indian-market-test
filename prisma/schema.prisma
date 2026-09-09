@@ -52,6 +52,14 @@ model AlertRule {
   /// Comma separated subset of: telegram,email,inapp
   channels String @default("telegram,email,inapp")
 
+  /// Escalation state. A rule alerts once when the move first reaches its
+  /// threshold, then stays silent until the move reaches the NEXT multiple of
+  /// that threshold — 1% alerts, 1.6% does not, 2% alerts again, 3% again.
+  /// This is what stops one falling session producing an alert every 5 minutes.
+  /// lastTriggerStep is that multiple; it resets when the trading day changes.
+  lastTriggerStep Int?
+  lastTriggerDay  String?
+
   lastTriggeredAt DateTime?
   createdAt       DateTime  @default(now())
 

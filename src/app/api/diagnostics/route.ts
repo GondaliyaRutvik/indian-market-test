@@ -152,8 +152,8 @@ export async function GET() {
   // Email config shape — never the password itself, only the properties that
   // explain a 535 BadCredentials (Gmail app passwords are exactly 16 chars and
   // must have their display spaces removed).
-  const pass = process.env.SMTP_PASS ?? "";
-  const user = process.env.SMTP_USER ?? "";
+  const pass = process.env.SMTP_PASS ?? process.env.EMAIL_PASS ?? "";
+  const user = (process.env.SMTP_USER ?? process.env.EMAIL_USER ?? "").trim();
   const email = {
     smtpHost: process.env.SMTP_HOST || "(not set)",
     smtpPort: process.env.SMTP_PORT || "(not set)",

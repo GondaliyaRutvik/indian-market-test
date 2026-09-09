@@ -54,8 +54,13 @@ export default function Dashboard() {
   }
 
   const visible = showAll ? data.indices : data.indices.filter((i) => i.featured);
-  const decliners = data.indices.filter((i) => i.quote && i.quote.changePct < 0).length;
-  const breached = data.indices.filter((i) => i.quote && i.quote.changePct <= -1);
+  const decliners = data.indices.filter(
+    (i) => i.quote && i.quote.changeReliable && i.quote.changePct < 0,
+  ).length;
+  // changeReliable guards against a stale previous close being read as a crash.
+  const breached = data.indices.filter(
+    (i) => i.quote && i.quote.changeReliable && i.quote.changePct <= -1,
+  );
 
   return (
     <div className="space-y-6">
@@ -158,10 +163,13 @@ export default function Dashboard() {
       </section>
 
       <p className="border-t border-ink-800 pt-4 text-[11px] leading-relaxed text-ink-500">
-        Prices come from Yahoo Finance and may be delayed by roughly 15 minutes — treat levels as
-        indicative, not executable. ETFs listed are those that track the index in question; this is
-        information, not investment advice, and no suitability or risk assessment has been made for
-        you.
+        Prices from <span className="text-ink-300">{data.dataSource.label}</span>
+        {data.dataSource.nseTimestamp && ` · NSE as of ${data.dataSource.nseTimestamp}`}
+        {!data.dataSource.nseOk &&
+          " — NSE was unreachable, so figures fall back to Yahoo Finance and may be delayed ~15 minutes"}
+        . Moving averages are computed from Yahoo daily closes. Treat levels as indicative, not
+        executable. ETFs listed are those that track the index in question; this is information, not
+        investment advice, and no suitability or risk assessment has been made for you.
       </p>
     </div>
   );

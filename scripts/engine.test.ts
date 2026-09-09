@@ -1,4 +1,4 @@
-import { ruleIsTriggered, metricFor, buildSuggestions, renderTelegram, renderTitle } from "../src/lib/engine";
+import { ruleIsTriggered, metricFor, buildSuggestions, renderTelegram, renderTitle, escalationStep, shouldFire } from "../src/lib/engine";
 import { isMarketOpen, marketStatus, istNow } from "../src/lib/market-hours";
 import type { Quote } from "../src/lib/yahoo";
 
@@ -16,6 +16,7 @@ function quote(over: Partial<Quote> = {}): Quote {
     sma20: 24000, sma50: 24200, vsSma20Pct: -2.4, vsSma50Pct: -3.2,
     high52w: 26400, low52w: 22000, from52wHighPct: -11.2,
     asOf: new Date().toISOString(), stale: false,
+    source: "yahoo", nav: null, navPremiumPct: null,
     prevCloseAgeDays: 1, changeReliable: true, ...over,
   };
 }
@@ -25,6 +26,7 @@ function rule(over: Record<string, unknown> = {}) {
     id: "r1", symbol: "^NSEI", label: "Nifty 50", direction: "down",
     thresholdPct: 1, basis: "prevClose", enabled: true, cooldownMinutes: 120,
     channels: "telegram,email,inapp", lastTriggeredAt: null, createdAt: new Date(),
+    lastTriggerStep: null, lastTriggerDay: null,
     ...over,
   } as never;
 }
@@ -95,6 +97,32 @@ check("weekend detail mentions Monday", marketStatus(new Date("2026-09-12T06:30:
 check("IST date key rolls correctly past UTC midnight",
   istNow(new Date("2026-09-09T19:30:00Z")).dateKey === "2026-09-10",
   istNow(new Date("2026-09-09T19:30:00Z")).dateKey);
+
+console.log("\n9. Escalation ladder — one alert per level per day");
+const D = "2026-09-10";
+const r1 = rule({ thresholdPct: 1 });
+check("-0.9% is step 0", escalationStep(r1, -0.9) === 0);
+check("-1.0% is step 1", escalationStep(r1, -1.0) === 1);
+check("-1.9% is still step 1", escalationStep(r1, -1.9) === 1);
+check("-2.0% is step 2 (no float drift)", escalationStep(r1, -2.0) === 2, String(escalationStep(r1, -2.0)));
+check("-3.4% is step 3", escalationStep(r1, -3.4) === 3);
+check("1.5% rule: -3.0% is step 2", escalationStep(rule({ thresholdPct: 1.5 }), -3.0) === 2);
+check("up rule: +2.2% is step 2", escalationStep(rule({ direction: "up", thresholdPct: 1 }), 2.2) === 2);
+
+check("first hit of -1% fires", shouldFire(r1, -1.05, D).fire);
+const fired1 = rule({ thresholdPct: 1, lastTriggerStep: 1, lastTriggerDay: D });
+check("-1.4% does NOT re-fire after level 1", !shouldFire(fired1, -1.4, D).fire);
+check("-1.9% does NOT re-fire after level 1", !shouldFire(fired1, -1.9, D).fire);
+check("-2.0% DOES fire (doubled)", shouldFire(fired1, -2.0, D).fire);
+check("-3.1% fires as step 3", shouldFire(fired1, -3.1, D).step === 3 && shouldFire(fired1, -3.1, D).fire);
+const fired3 = rule({ thresholdPct: 1, lastTriggerStep: 3, lastTriggerDay: D });
+check("-3.5% silent after level 3", !shouldFire(fired3, -3.5, D).fire);
+check("recovery to -1.2% stays silent", !shouldFire(fired3, -1.2, D).fire);
+check("ladder resets on a new trading day", shouldFire(fired3, -1.05, "2026-09-11").fire);
+check("suppressed reason names the next level",
+  shouldFire(fired1, -1.4, D).reason.includes("next alert at -2.00%"),
+  shouldFire(fired1, -1.4, D).reason);
+check("below threshold never fires", !shouldFire(r1, -0.5, D).fire);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

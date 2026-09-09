@@ -27,6 +27,13 @@ export type MarketPayload = {
   indices: IndexRow[];
   suggestions: SuggestionGroup[];
   errors: Record<string, string>;
+  dataSource: {
+    nseOk: boolean;
+    nseError: string | null;
+    nseTimestamp: string | null;
+    nseCount: number;
+    label: string;
+  };
 };
 
 export type RuleRow = {

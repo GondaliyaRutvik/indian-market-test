@@ -196,8 +196,12 @@ export default function AlertsPage() {
 
             <p className="mt-3 text-[11px] leading-relaxed text-ink-500">
               &quot;From today&apos;s high&quot; catches an index that opened strong and then faded —
-              a drop the headline number against yesterday&apos;s close would miss. Cooldown stops a
-              single bad session from sending dozens of messages.
+              a drop the headline number against yesterday&apos;s close would miss.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-ink-500">
+              <span className="text-ink-300">You get one alert per level, per day.</span> A 1% rule
+              alerts once when the index reaches −1%; it stays quiet through −1.2% and −1.8%, then
+              alerts again at −2%, and again at −3%. The ladder resets each trading morning.
             </p>
           </form>
 
