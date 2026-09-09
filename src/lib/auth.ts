@@ -1,5 +1,9 @@
 import { createHmac, timingSafeEqual } from "crypto";
-import { SESSION_COOKIE, SESSION_MAX_AGE_SECONDS } from "./session-cookie";
+import {
+  SESSION_COOKIE,
+  SESSION_MAX_AGE_SECONDS,
+  SESSION_REFRESH_AFTER_SECONDS,
+} from "./session-cookie";
 
 /**
  * Deliberately minimal single-user gate. The app is deployed on a public URL and
@@ -42,6 +46,16 @@ export function verifyToken(token: string | undefined): boolean {
   if (a.length !== b.length || !timingSafeEqual(a, b)) return false;
 
   return Number(payload) > Date.now();
+}
+
+/** True when a valid token is past the halfway point of its lifetime. */
+export function tokenNeedsRefresh(token: string | undefined): boolean {
+  if (authDisabled() || !token) return false;
+  const [payload] = token.split(".");
+  const expires = Number(payload);
+  if (!Number.isFinite(expires)) return false;
+  const remaining = (expires - Date.now()) / 1000;
+  return remaining < SESSION_REFRESH_AFTER_SECONDS;
 }
 
 export function checkPassword(candidate: string): boolean {

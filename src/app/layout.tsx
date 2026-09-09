@@ -5,6 +5,15 @@ import Nav from "@/components/Nav";
 export const metadata: Metadata = {
   title: "Nifty Dip Alerts",
   description: "Track Indian market indices, get alerted on dips, and see which ETFs track them.",
+  applicationName: "Nifty Dip Alerts",
+  // Lets iOS run it as a standalone app from the home screen rather than in a
+  // Safari chrome, and keeps the status bar consistent with the dark theme.
+  appleWebApp: {
+    capable: true,
+    title: "Dip Alerts",
+    statusBarStyle: "black-translucent",
+  },
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {
