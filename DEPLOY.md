@@ -63,7 +63,15 @@ Keep these two lines somewhere — you need them in the next step and in step 6.
 
 4. Deploy.
 
-The build runs `prisma generate && prisma migrate deploy && next build`, so **your tables are created automatically** on this first deploy. You do not need to run anything by hand.
+The build runs `prisma generate && next build`. It deliberately does **not** run migrations: `prisma migrate deploy` takes a Postgres advisory lock, and against Neon that lock is held through pgbouncer and can time out with `P1002`, failing a deploy that had nothing to apply.
+
+So create the tables once yourself, from your machine, pointed at the same database:
+
+```bash
+npm run migrate
+```
+
+Use the **direct** (non-pooled) connection string for this — the same host without `-pooler`. Repeat it only when the schema actually changes.
 
 Vercel Hobby only allows one region, and `vercel.json` pins it to `bom1` (Mumbai) — closest to the Indian market data.
 
@@ -95,9 +103,10 @@ So `vercel.json` only schedules a single daily end-of-day check. For intraday al
    - Value: `Bearer <your CRON_SECRET>`
 4. Save, then hit **TEST RUN**. A 200 with `"skipped": true` outside market hours is correct — it means auth worked and the market-hours guard fired.
 
-That single header is what stops strangers triggering your alerts.
+That single header is all that stands between your alert endpoint and the open internet, so don't skip it.
 
-**Alternative:** `.github/workflows/market-check.yml` is included and free, but GitHub's scheduler is best-effort and often lags 5–15 minutes. Use it only as a backup.
+> There is deliberately no GitHub Actions fallback. One scheduler that fires on
+> time beats two that need the same secrets kept in sync.
 
 ## 7. Telegram (free, 2 minutes)
 
@@ -141,8 +150,8 @@ Your actual load is tiny — one user, ~75 cron runs per trading day.
 
 ## What free costs you
 
-- **~15-minute delayed prices** (Yahoo). Fine for "Nifty fell 1% today", not for timing an entry to the second.
-- **No true realtime.** That needs a broker API (Kite/Upstox, ~₹2,000/month). Only worth it if the delay actually costs you money.
+- **Prices are NSE's published figures**, not tick data. Good enough for "Nifty fell 1% today"; not for timing an entry to the second. That needs a broker API (Kite/Upstox, ~₹2,000/month).
+- **Moving averages come from Yahoo daily closes**, so they lag a live session slightly.
 - **Cold starts.** First page load after an idle spell takes a second or two while Neon wakes.
 
 ## One rule to respect

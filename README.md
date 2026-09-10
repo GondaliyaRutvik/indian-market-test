@@ -2,11 +2,11 @@
 
 Tracks Indian market indices, alerts you when one falls (or rises) past a threshold you set, and shows the ETFs that track that index so you can act on the dip.
 
-- **Data**: Yahoo Finance — free, no API key, INR prices on the NSE calendar. Delayed roughly 15 minutes.
+- **Data**: NSE India for prices (free, no key, and it covers the sector indices Yahoo's series has holes in), with Yahoo Finance for the 20/50-day averages and as an automatic fallback when NSE is unreachable.
 - **Alerts**: Telegram, email, and an in-app notification feed. Per-rule channel selection.
 - **Suggestions**: each index maps to the ETFs that track it, ranked by discount to their 20-day average.
 
-> Prices are delayed and this app gives you information, not investment advice. It has made no suitability or risk assessment for you.
+> This app gives you information, not investment advice. It has made no suitability or risk assessment for you.
 
 ---
 
@@ -94,7 +94,7 @@ Pick one, set it in the environment, then set the recipient in **Settings**:
 
 1. Push this repo to GitHub, import it in Vercel.
 2. Add every variable from `.env.example` in **Project → Settings → Environment Variables**.
-3. Deploy. The `build` script runs `prisma migrate deploy` automatically.
+3. Deploy, then run `npm run migrate` once from your machine against the same database to create the tables. The build does not run migrations — see [DEPLOY.md](DEPLOY.md) for why.
 
 ### Which data sources work from Vercel
 
@@ -118,23 +118,19 @@ This is the part people get wrong. The app does not poll on its own — somethin
 
 **Vercel Hobby only allows one cron run per day**, which is useless for intraday alerts. `vercel.json` therefore only schedules a single end-of-day check. For real polling use one of:
 
-**Option A — cron-job.org (recommended, free, punctual)**
+**cron-job.org (recommended, free, punctual)**
 
 1. Create a job at [cron-job.org](https://cron-job.org).
 2. URL: `https://<your-app>.vercel.app/api/cron/check`
 3. Schedule: every 5 minutes, Mon–Fri, 03:45–10:00 **UTC** (= 09:15–15:30 IST).
 4. Add a header: `Authorization: Bearer <your CRON_SECRET>`
 
-**Option B — GitHub Actions**
+> A GitHub Actions workflow was included at one point and has been removed. Its
+> scheduler lagged 5-15 minutes under load, and running it alongside cron-job.org
+> added a second thing to keep credentials in sync with — for no benefit, since
+> the escalation ladder already prevents duplicate alerts.
 
-[`.github/workflows/market-check.yml`](.github/workflows/market-check.yml) is ready to go. Add two repo secrets:
-
-- `APP_URL` — `https://<your-app>.vercel.app`
-- `CRON_SECRET` — the same value as in Vercel
-
-GitHub's scheduler is best-effort and can lag several minutes under load, so Option A is more reliable.
-
-**Option C — Railway / Render**, where a long-running process is allowed, or just your own machine:
+**Or Railway / Render**, where a long-running process is allowed — or just your own machine:
 
 ```bash
 npm run check            # respects market hours
@@ -147,12 +143,14 @@ npm run check -- --force # ignore market hours (weekend testing)
 
 For each enabled rule, every check:
 
-1. Fetch the index quote (price, previous close, day high, 1 year of daily closes).
+1. Fetch the index quote — price and previous close from NSE, moving averages from Yahoo's daily closes.
 2. Compute the metric — either `% vs previous close` or `% drawdown from today's high`.
-3. Fire if the metric crosses the threshold in the rule's direction.
-4. Skip if the rule fired within its cooldown window (default 120 min), so one bad session does not produce dozens of messages.
+3. Work out the **escalation level**: how many whole multiples of the threshold the move has reached. A 1% rule is at level 1 from -1.00% to -1.99%, level 2 from -2.00%, and so on.
+4. Send only if that level is **higher than the last level alerted today**. The ladder resets each IST trading morning.
 5. Fetch the mapped ETFs, sort by discount to their 20-day average, and attach them to the message.
 6. Send on the enabled channels, and always write the event to the in-app feed as an audit trail.
+
+**Why levels rather than a time cooldown?** A cooldown gets it wrong in both directions: too short and a sliding market sends a message every few minutes, too long and a genuine 1% to 3% collapse is suppressed because it happened inside the window. Levels track the thing you actually care about — whether it got materially worse.
 
 **Why two bases?** `vs previous close` is the headline number everyone quotes. `from today's high` catches an index that opened strong and faded — a real intraday drop the headline number hides.
 
@@ -163,8 +161,10 @@ For each enabled rule, every check:
 ```
 src/
   lib/
-    yahoo.ts          Quote fetching, SMA/52-week computation, caching
-    instruments.ts    Index catalogue and index -> ETF mapping
+    quotes.ts         Resolver: NSE prices merged with Yahoo moving averages
+    nse.ts            NSE allIndices + etf (includes NAV), cached
+    yahoo.ts          Daily closes for SMA/52-week, and the fallback quote
+    instruments.ts    Index catalogue, NSE name mapping, index -> ETF mapping
     engine.ts         Rule evaluation, ETF ranking, message rendering
     notify.ts         Telegram + email (Resend or SMTP) delivery
     market-hours.ts   NSE session logic, all in Asia/Kolkata
@@ -177,6 +177,8 @@ src/
 scripts/
   seed.mjs            Starter alert rules
   run-check.mjs       Fire a check by hand
+  test-smtp.mjs       Verify Gmail credentials without deploying
+  engine.test.ts      50 assertions over the alert logic
 ```
 
 ---
